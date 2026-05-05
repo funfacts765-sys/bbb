@@ -7,7 +7,7 @@ import os
 
 app = Flask(__name__)
 
-# --- EXTERNAL LINKS (No local folder files needed) ---
+# --- EXTERNAL LINKS ---
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1fiMj_RDDx9rY1KZeVfsh2Nb4hSMI933n12eGgtwU2eI/export?format=csv&gid=0"
 AUDIO_URL = "https://www.dropbox.com/scl/fi/2e48j4zfdxqf9dw6hw2pe/human-heartbeat-daniel_simon.mp3?rlkey=y6d6h2a13zcnwrv8irczg3po5&raw=1"
 
@@ -17,8 +17,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'funfacts765@gmail.com' 
-app.config['MAIL_PASSWORD'] = 'mohu xeye wxlk tbps' 
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', 'funfacts765@gmail.com')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', 'mohu xeye wxlk tbps')
 mail = Mail(app)
 db = SQLAlchemy(app)
 
@@ -36,7 +36,7 @@ class Donor(db.Model):
     email = db.Column(db.String(100))
     center_id = db.Column(db.Integer, db.ForeignKey('center.id'))
 
-# 3. PREMIUM UI STYLES (Animations & Sound Engine)
+# 3. PREMIUM UI STYLES
 UI_STYLES = f"""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
 <style>
@@ -107,7 +107,7 @@ def register():
         <h1 class="accent">REGISTRATION</h1>
         <form method="POST">
             <input type="text" name="name" placeholder="Full Name" required>
-            <input type="text" name="blood_group" placeholder="Blood Group (A+, A2B1+, etc.)" required>
+            <input type="text" name="blood_group" placeholder="Blood Group (A+, B-, O+, etc.)" required>
             <input type="email" name="email" placeholder="Email Address" required>
             <button type="submit" class="nav-card" style="cursor:pointer; background:none; width:50%; margin-top:20px;">BECOME A DONOR</button>
         </form>
@@ -158,7 +158,7 @@ def search():
     <div class="container animate__animated animate__fadeIn">
         <h1 class="accent">FIND BLOOD</h1>
         <form action="/search">
-            <input type="text" name="blood_group" placeholder="Enter Exact Group (e.g., A2B1+)" style="width: 350px;">
+            <input type="text" name="blood_group" placeholder="Enter Exact Group (e.g., A+, O-)" style="width: 350px;">
             <button type="submit" class="nav-card" style="padding: 12px 25px; cursor:pointer; background:none;">SEARCH</button>
         </form>
         {% if donors %}
@@ -183,7 +183,15 @@ def seed_data():
     with app.app_context():
         db.create_all()
         if Center.query.first() is None:
-            tn_centers = [("Rajiv Gandhi Govt Hospital", "Chennai"), ("Government Stanley Hospital", "Chennai"), ("Thanjavur Govt Medical College", "Thanjavur"), ("Cuddalore Govt Hospital", "Cuddalore"), ("Salem Govt Hospital", "Salem"), ("Trichy Govt Hospital", "Trichy"), ("Coimbatore Govt Hospital", "Coimbatore")]
+            tn_centers = [
+                ("Rajiv Gandhi Govt Hospital", "Chennai"),
+                ("Government Stanley Hospital", "Chennai"),
+                ("Thanjavur Govt Medical College", "Thanjavur"),
+                ("Cuddalore Govt Hospital", "Cuddalore"),
+                ("Salem Govt Hospital", "Salem"),
+                ("Trichy Govt Hospital", "Trichy"),
+                ("Coimbatore Govt Hospital", "Coimbatore")
+            ]
             c_list = [Center(name=n, location=l) for n, l in tn_centers]
             db.session.add_all(c_list)
             db.session.commit()
@@ -192,10 +200,18 @@ def seed_data():
                 for _, row in df.iterrows():
                     name = str(row.get('donar name', '')).strip()
                     if name and name != 'nan':
-                        db.session.add(Donor(name=name, blood_group=str(row.get('Blood Group', '')).strip().upper(), email=str(row.get('Email', '')).strip(), center_id=random.choice(c_list).id))
+                        db.session.add(Donor(
+                            name=name,
+                            blood_group=str(row.get('Blood Group', '')).strip().upper(),
+                            email=str(row.get('Email', '')).strip(),
+                            center_id=random.choice(c_list).id
+                        ))
                 db.session.commit()
-            except: pass
+            except:
+                pass
 
 seed_data()
+
+# ✅ FIX: debug=False saves memory, prevents SIGKILL on Render free tier
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
